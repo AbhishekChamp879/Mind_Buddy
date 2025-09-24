@@ -39,7 +39,14 @@ import {
   EyeOff,
   X,
   Info,
-  Globe
+  Globe,
+  Shield,
+  Lock,
+  UserX,
+  Shuffle,
+  Key,
+  Database,
+  AlertCircle
 } from 'lucide-react';
 import { format, addDays, isSameDay, isToday, isTomorrow } from 'date-fns';
 
@@ -301,6 +308,23 @@ const Booking = () => {
   });
   const [step, setStep] = useState<'counselor' | 'datetime' | 'details' | 'confirmation'>('counselor');
 
+  // Anonymous booking state management
+  const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
+  const [anonymousId, setAnonymousId] = useState<string>('');
+  const [privacyLevel, setPrivacyLevel] = useState<'basic' | 'enhanced' | 'maximum'>('basic');
+  const [useEncryption, setUseEncryption] = useState<boolean>(false);
+  const [dataRetention, setDataRetention] = useState<'session-only' | '30-days' | '90-days'>('30-days');
+  const [anonymousForm, setAnonymousForm] = useState({
+    alias: '',
+    ageRange: '',
+    concerns: '',
+    previousExperience: '',
+    communicationStyle: '',
+    sessionNotes: '',
+    emergencyCode: '',
+    preferredAnonymity: 'partial'
+  });
+
   // Real-time state management
   const [liveAvailability, setLiveAvailability] = useState<{[key: string]: string[]}>({});
   const [counselorStatus, setCounselorStatus] = useState<{[key: string]: 'online' | 'busy' | 'offline'}>({});
@@ -353,6 +377,27 @@ const Booking = () => {
       return () => clearInterval(interval);
     }
   }, [autoRefresh]);
+
+  // Generate anonymous ID when switching to anonymous mode
+  useEffect(() => {
+    if (isAnonymous && !anonymousId) {
+      const generateAnonymousId = () => {
+        const prefixes = ['ANON', 'PRIV', 'CONF', 'SAFE', 'PEER'];
+        const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+        const randomNum = Math.floor(Math.random() * 99999).toString().padStart(5, '0');
+        return `${prefix}-${randomNum}`;
+      };
+      setAnonymousId(generateAnonymousId());
+      
+      // Generate random alias suggestions
+      const aliasOptions = ['Student', 'Learner', 'Friend', 'Peer', 'Seeker'];
+      const randomAlias = aliasOptions[Math.floor(Math.random() * aliasOptions.length)];
+      setAnonymousForm(prev => ({ 
+        ...prev, 
+        alias: prev.alias || `${randomAlias}${Math.floor(Math.random() * 999)}` 
+      }));
+    }
+  }, [isAnonymous, anonymousId]);
 
   // Update booking progress
   useEffect(() => {
@@ -416,24 +461,48 @@ const Booking = () => {
   const allSpecialties = Array.from(new Set(mockCounselors.flatMap(c => c.specialties))).sort();
 
   const handleBooking = async () => {
-    // Validate all required fields
-    if (!selectedCounselor || !selectedTime || !selectedDate || 
-        !bookingForm.name || !bookingForm.email || !bookingForm.phone || !bookingForm.reason) {
-      alert('Please fill in all required fields and select a counselor and time slot.');
-      return;
+    // Validate required fields based on booking type
+    if (isAnonymous) {
+      if (!selectedCounselor || !selectedTime || !selectedDate || 
+          !anonymousForm.alias || !anonymousForm.ageRange || !anonymousForm.concerns) {
+        alert('Please complete all required fields for anonymous booking.');
+        return;
+      }
+    } else {
+      if (!selectedCounselor || !selectedTime || !selectedDate || 
+          !bookingForm.name || !bookingForm.email || !bookingForm.phone || !bookingForm.reason) {
+        alert('Please fill in all required fields and select a counselor and time slot.');
+        return;
+      }
     }
 
     try {
       // Show instant loading state
       setBookingProgress(80);
       
-      console.log('Processing real-time booking...', {
-        counselor: selectedCounselorData?.name,
-        date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '',
-        time: selectedTime,
-        sessionType,
-        client: bookingForm
-      });
+      const bookingData = isAnonymous 
+        ? {
+            anonymousId,
+            counselor: selectedCounselorData?.name,
+            date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '',
+            time: selectedTime,
+            sessionType,
+            anonymousClient: anonymousForm,
+            privacySettings: {
+              level: privacyLevel,
+              encryption: useEncryption,
+              dataRetention: dataRetention
+            }
+          }
+        : {
+            counselor: selectedCounselorData?.name,
+            date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '',
+            time: selectedTime,
+            sessionType,
+            client: bookingForm
+          };
+
+      console.log(`Processing ${isAnonymous ? 'anonymous' : 'standard'} booking...`, bookingData);
 
       // Simulate real-time slot verification
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -444,6 +513,27 @@ const Booking = () => {
         alert('Sorry, this slot was just booked by another user. Please select a different time.');
         setSelectedTime('');
         return;
+      }
+      
+      // Enhanced privacy processing for anonymous bookings
+      if (isAnonymous) {
+        console.log('Applying privacy protections...');
+        // Simulate encryption of sensitive data
+        if (useEncryption) {
+          console.log('Data encrypted with end-to-end encryption');
+        }
+        
+        // Simulate privacy-level processing
+        switch (privacyLevel) {
+          case 'maximum':
+            console.log('Maximum privacy: No logs, no retention, encrypted communication');
+            break;
+          case 'enhanced':
+            console.log('Enhanced privacy: Minimal logs, short retention, secure communication');
+            break;
+          default:
+            console.log('Basic privacy: Standard protections applied');
+        }
       }
       
       // Simulate booking processing
@@ -461,7 +551,7 @@ const Booking = () => {
       setStep('confirmation');
       
     } catch (error) {
-      console.error('Real-time booking failed:', error);
+      console.error(`${isAnonymous ? 'Anonymous' : 'Standard'} booking failed:`, error);
       alert('Booking failed. Please try again.');
       setBookingProgress(Math.max(0, bookingProgress - 20));
     }
@@ -941,117 +1031,391 @@ const Booking = () => {
         </p>
       </div>
 
-      {/* Personal Information */}
-      <Card>
+      {/* Anonymous Booking Toggle */}
+      <Card className="border-blue-200 bg-blue-50/30">
         <CardHeader>
           <CardTitle className="flex items-center text-base md:text-lg">
-            <User className="h-5 w-5 mr-2" />
-            Personal Information
+            <Shield className="h-5 w-5 mr-2 text-blue-600" />
+            Privacy & Anonymity Options
           </CardTitle>
+          <CardDescription>
+            Protect your privacy with anonymous booking features designed for sensitive conversations.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 p-4 md:p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-medium">Full Name *</Label>
-              <Input
-                id="name"
-                placeholder="Your full name"
-                value={bookingForm.name}
-                onChange={(e) => setBookingForm({...bookingForm, name: e.target.value})}
-                className={`${!bookingForm.name ? 'border-red-200 focus-visible:ring-red-500' : ''}`}
-                required
+        <CardContent className="space-y-4">
+          <div className="flex items-start space-x-3">
+            <div className="flex items-center space-x-2 pt-1">
+              <input
+                type="checkbox"
+                id="anonymous"
+                checked={isAnonymous}
+                onChange={(e) => setIsAnonymous(e.target.checked)}
+                className="rounded"
               />
+              <Label htmlFor="anonymous" className="font-medium cursor-pointer">
+                Book Anonymously
+              </Label>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="dateOfBirth" className="text-sm font-medium">Date of Birth</Label>
-              <Input
-                id="dateOfBirth"
-                type="date"
-                value={bookingForm.dateOfBirth}
-                onChange={(e) => setBookingForm({...bookingForm, dateOfBirth: e.target.value})}
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your.email@example.com"
-                value={bookingForm.email}
-                onChange={(e) => setBookingForm({...bookingForm, email: e.target.value})}
-                className={!bookingForm.email ? 'border-red-200 focus-visible:ring-red-500' : ''}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number *</Label>
-              <Input
-                id="phone"
-                placeholder="+91 98765 43210"
-                value={bookingForm.phone}
-                onChange={(e) => setBookingForm({...bookingForm, phone: e.target.value})}
-                className={!bookingForm.phone ? 'border-red-200 focus-visible:ring-red-500' : ''}
-                required
-              />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-muted-foreground">
+                Use anonymous booking to protect your identity while still receiving professional support.
+              </p>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="reason">Reason for Session *</Label>
-            <textarea
-              id="reason"
-              placeholder="Please describe what you'd like to discuss or work on during your session..."
-              value={bookingForm.reason}
-              onChange={(e) => setBookingForm({...bookingForm, reason: e.target.value})}
-              rows={3}
-              className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-                !bookingForm.reason ? 'border-red-200 focus-visible:ring-red-500' : ''
-              }`}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              This information helps your counselor prepare for your session and is kept confidential.
-            </p>
-          </div>
+          {isAnonymous && (
+            <div className="space-y-4 pt-4 border-t border-blue-200">
+              {/* Anonymous ID Display */}
+              <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-blue-900">Your Anonymous ID</p>
+                    <code className="text-sm bg-white px-2 py-1 rounded border text-blue-700 font-mono">
+                      {anonymousId}
+                    </code>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const prefixes = ['ANON', 'PRIV', 'CONF', 'SAFE', 'PEER'];
+                      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+                      const randomNum = Math.floor(Math.random() * 99999).toString().padStart(5, '0');
+                      setAnonymousId(`${prefix}-${randomNum}`);
+                    }}
+                  >
+                    <Shuffle className="h-4 w-4 mr-1" />
+                    New ID
+                  </Button>
+                </div>
+                <p className="text-xs text-blue-700">
+                  Save this ID to access your session details later. This is your only identifier.
+                </p>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="preferredContactMethod">Preferred Contact Method</Label>
-              <Select value={bookingForm.preferredContactMethod} onValueChange={(value) => setBookingForm({...bookingForm, preferredContactMethod: value})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="email">
-                    <Mail className="h-4 w-4 mr-2" />
-                    Email
-                  </SelectItem>
-                  <SelectItem value="phone">
-                    <Phone className="h-4 w-4 mr-2" />
-                    Phone Call
-                  </SelectItem>
-                  <SelectItem value="text">
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Text Message
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Privacy Level Selection */}
+              <div className="space-y-3">
+                <Label className="font-medium">Privacy Protection Level</Label>
+                <RadioGroup 
+                  value={privacyLevel} 
+                  onValueChange={(value: 'basic' | 'enhanced' | 'maximum') => setPrivacyLevel(value)}
+                  className="space-y-3"
+                >
+                  <div className="flex items-start space-x-3 p-3 border rounded-lg">
+                    <RadioGroupItem value="basic" id="basic" className="mt-1" />
+                    <div className="flex-1">
+                      <Label htmlFor="basic" className="font-medium cursor-pointer">Basic Privacy</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Standard data protection with minimal personal information required.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 p-3 border rounded-lg border-blue-200 bg-blue-50">
+                    <RadioGroupItem value="enhanced" id="enhanced" className="mt-1" />
+                    <div className="flex-1">
+                      <Label htmlFor="enhanced" className="font-medium cursor-pointer">Enhanced Privacy</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Encrypted communication, minimal data retention, secure session management.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 p-3 border rounded-lg border-green-200 bg-green-50">
+                    <RadioGroupItem value="maximum" id="maximum" className="mt-1" />
+                    <div className="flex-1">
+                      <Label htmlFor="maximum" className="font-medium cursor-pointer flex items-center">
+                        Maximum Privacy 
+                        <Badge variant="secondary" className="ml-2 text-xs">Recommended</Badge>
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        No logs, immediate data deletion post-session, end-to-end encryption.
+                      </p>
+                    </div>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Additional Privacy Options */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="encryption"
+                    checked={useEncryption}
+                    onChange={(e) => setUseEncryption(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Label htmlFor="encryption" className="flex items-center text-sm">
+                    <Lock className="h-4 w-4 mr-1" />
+                    End-to-end encrypt all communications
+                  </Label>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Data Retention Period</Label>
+                  <Select value={dataRetention} onValueChange={(value: 'session-only' | '30-days' | '90-days') => setDataRetention(value)}>
+                    <SelectTrigger>
+                      <Database className="h-4 w-4 mr-2" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="session-only">Delete immediately after session</SelectItem>
+                      <SelectItem value="30-days">Keep for 30 days (recommended)</SelectItem>
+                      <SelectItem value="90-days">Keep for 90 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="emergencyContact">Emergency Contact</Label>
-              <Input
-                id="emergencyContact"
-                placeholder="Name and phone number"
-                value={bookingForm.emergencyContact}
-                onChange={(e) => setBookingForm({...bookingForm, emergencyContact: e.target.value})}
-              />
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Form Fields - Conditional based on booking type */}
+      {isAnonymous ? (
+        /* Anonymous Form */
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center text-base md:text-lg">
+              <UserX className="h-5 w-5 mr-2" />
+              Anonymous Session Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-4 md:p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="alias" className="text-sm font-medium">Preferred Alias *</Label>
+                <div className="flex space-x-2">
+                  <Input
+                    id="alias"
+                    placeholder="How should we address you?"
+                    value={anonymousForm.alias}
+                    onChange={(e) => setAnonymousForm({...anonymousForm, alias: e.target.value})}
+                    className={`flex-1 ${!anonymousForm.alias ? 'border-red-200 focus-visible:ring-red-500' : ''}`}
+                    required
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      const aliases = ['Student', 'Learner', 'Friend', 'Peer', 'Seeker', 'Helper', 'Traveler'];
+                      const randomAlias = aliases[Math.floor(Math.random() * aliases.length)];
+                      setAnonymousForm({...anonymousForm, alias: `${randomAlias}${Math.floor(Math.random() * 999)}`});
+                    }}
+                  >
+                    <Shuffle className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This name will only be used during your session for a personal touch.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="ageRange" className="text-sm font-medium">Age Range *</Label>
+                <Select value={anonymousForm.ageRange} onValueChange={(value) => setAnonymousForm({...anonymousForm, ageRange: value})}>
+                  <SelectTrigger className={!anonymousForm.ageRange ? 'border-red-200' : ''}>
+                    <SelectValue placeholder="Select age range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="16-18">16-18 years</SelectItem>
+                    <SelectItem value="19-22">19-22 years</SelectItem>
+                    <SelectItem value="23-26">23-26 years</SelectItem>
+                    <SelectItem value="27-30">27-30 years</SelectItem>
+                    <SelectItem value="31+">31+ years</SelectItem>
+                    <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="concerns">What would you like to discuss? *</Label>
+              <textarea
+                id="concerns"
+                placeholder="Describe your concerns or what you'd like to work on. No personal details needed."
+                value={anonymousForm.concerns}
+                onChange={(e) => setAnonymousForm({...anonymousForm, concerns: e.target.value})}
+                rows={3}
+                className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  !anonymousForm.concerns ? 'border-red-200 focus-visible:ring-red-500' : ''
+                }`}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Keep this general - avoid specific names, places, or identifying details.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="previousExperience">Previous Therapy Experience</Label>
+                <Select value={anonymousForm.previousExperience} onValueChange={(value) => setAnonymousForm({...anonymousForm, previousExperience: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select experience level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="first-time">First time seeking help</SelectItem>
+                    <SelectItem value="some-experience">Some previous experience</SelectItem>
+                    <SelectItem value="experienced">Experienced with therapy</SelectItem>
+                    <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="communicationStyle">Communication Preference</Label>
+                <Select value={anonymousForm.communicationStyle} onValueChange={(value) => setAnonymousForm({...anonymousForm, communicationStyle: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="How do you like to communicate?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="direct">Direct and straightforward</SelectItem>
+                    <SelectItem value="gentle">Gentle and supportive</SelectItem>
+                    <SelectItem value="collaborative">Collaborative discussion</SelectItem>
+                    <SelectItem value="structured">Structured approach</SelectItem>
+                    <SelectItem value="flexible">Whatever feels natural</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="emergencyCode">Emergency Contact Code (Optional)</Label>
+              <Input
+                id="emergencyCode"
+                placeholder="A code word for emergency situations"
+                value={anonymousForm.emergencyCode}
+                onChange={(e) => setAnonymousForm({...anonymousForm, emergencyCode: e.target.value})}
+                type="password"
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional: A private code that can be used to identify you in emergency situations only.
+              </p>
+            </div>
+
+            <Alert>
+              <Shield className="h-4 w-4" />
+              <AlertDescription>
+                <span className="font-medium">Privacy Guarantee:</span> Your session information is protected by our anonymous booking system. 
+                Only your chosen alias and anonymous ID will be used during the session.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Standard Form */
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center text-base md:text-lg">
+              <User className="h-5 w-5 mr-2" />
+              Personal Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-4 md:p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-medium">Full Name *</Label>
+                <Input
+                  id="name"
+                  placeholder="Your full name"
+                  value={bookingForm.name}
+                  onChange={(e) => setBookingForm({...bookingForm, name: e.target.value})}
+                  className={`${!bookingForm.name ? 'border-red-200 focus-visible:ring-red-500' : ''}`}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dateOfBirth" className="text-sm font-medium">Date of Birth</Label>
+                <Input
+                  id="dateOfBirth"
+                  type="date"
+                  value={bookingForm.dateOfBirth}
+                  onChange={(e) => setBookingForm({...bookingForm, dateOfBirth: e.target.value})}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={bookingForm.email}
+                  onChange={(e) => setBookingForm({...bookingForm, email: e.target.value})}
+                  className={!bookingForm.email ? 'border-red-200 focus-visible:ring-red-500' : ''}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number *</Label>
+                <Input
+                  id="phone"
+                  placeholder="+91 98765 43210"
+                  value={bookingForm.phone}
+                  onChange={(e) => setBookingForm({...bookingForm, phone: e.target.value})}
+                  className={!bookingForm.phone ? 'border-red-200 focus-visible:ring-red-500' : ''}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reason">Reason for Session *</Label>
+              <textarea
+                id="reason"
+                placeholder="Please describe what you'd like to discuss or work on during your session..."
+                value={bookingForm.reason}
+                onChange={(e) => setBookingForm({...bookingForm, reason: e.target.value})}
+                rows={3}
+                className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  !bookingForm.reason ? 'border-red-200 focus-visible:ring-red-500' : ''
+                }`}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                This information helps your counselor prepare for your session and is kept confidential.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="preferredContactMethod">Preferred Contact Method</Label>
+                <Select value={bookingForm.preferredContactMethod} onValueChange={(value) => setBookingForm({...bookingForm, preferredContactMethod: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">
+                      <Mail className="h-4 w-4 mr-2" />
+                      Email
+                    </SelectItem>
+                    <SelectItem value="phone">
+                      <Phone className="h-4 w-4 mr-2" />
+                      Phone Call
+                    </SelectItem>
+                    <SelectItem value="text">
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Text Message
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="emergencyContact">Emergency Contact</Label>
+                <Input
+                  id="emergencyContact"
+                  placeholder="Name and phone number"
+                  value={bookingForm.emergencyContact}
+                  onChange={(e) => setBookingForm({...bookingForm, emergencyContact: e.target.value})}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Session Preferences */}
       <Card>
@@ -1086,7 +1450,9 @@ const Booking = () => {
               <Label>Session Reminders</Label>
               <div className="flex items-center space-x-2">
                 <input type="checkbox" id="reminders" className="rounded" defaultChecked />
-                <Label htmlFor="reminders" className="text-sm">Send me reminders 24hrs and 1hr before</Label>
+                <Label htmlFor="reminders" className="text-sm">
+                  {isAnonymous ? 'Send anonymous reminders to session platform' : 'Send me reminders 24hrs and 1hr before'}
+                </Label>
               </div>
             </div>
           </div>
@@ -1098,6 +1464,7 @@ const Booking = () => {
                   <p className="font-medium">Session Details</p>
                   <p className="text-sm text-muted-foreground">
                     {sessionType === 'online' ? 'Online' : 'In-Person'} Session with {selectedCounselorData.name}
+                    {isAnonymous && ' (Anonymous Booking)'}
                   </p>
                 </div>
               </div>
@@ -1105,6 +1472,11 @@ const Booking = () => {
                 <p className="text-sm text-green-600">
                   ✓ Free consultation service. No upfront charges required.
                 </p>
+                {isAnonymous && (
+                  <p className="text-sm text-blue-600">
+                    ✓ Protected by advanced privacy features and anonymous booking system.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -1120,13 +1492,9 @@ const Booking = () => {
         <Button 
           onClick={handleBooking}
           disabled={
-            !selectedCounselor || 
-            !selectedTime || 
-            !selectedDate ||
-            !bookingForm.name || 
-            !bookingForm.email || 
-            !bookingForm.phone || 
-            !bookingForm.reason
+            isAnonymous 
+              ? (!selectedCounselor || !selectedTime || !selectedDate || !anonymousForm.alias || !anonymousForm.ageRange || !anonymousForm.concerns)
+              : (!selectedCounselor || !selectedTime || !selectedDate || !bookingForm.name || !bookingForm.email || !bookingForm.phone || !bookingForm.reason)
           }
           variant="hero"
           size="lg"
@@ -1135,8 +1503,10 @@ const Booking = () => {
           <span className="truncate">
             {!selectedCounselor ? 'Select Counselor First' :
              !selectedTime ? 'Select Time Slot First' :
-             (!bookingForm.name || !bookingForm.email || !bookingForm.phone || !bookingForm.reason) ? 'Complete Required Fields' :
-             'Book Session'}
+             isAnonymous 
+               ? (!anonymousForm.alias || !anonymousForm.ageRange || !anonymousForm.concerns) ? 'Complete Required Fields' : 'Book Anonymous Session'
+               : (!bookingForm.name || !bookingForm.email || !bookingForm.phone || !bookingForm.reason) ? 'Complete Required Fields' : 'Book Session'
+            }
           </span>
           <CheckCircle className="h-4 w-4 ml-2 flex-shrink-0" />
         </Button>
@@ -1153,39 +1523,67 @@ const Booking = () => {
       
       <div className="space-y-2 px-4">
         <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-          Instant Booking Confirmed!
+          {isAnonymous ? 'Anonymous Booking Confirmed!' : 'Instant Booking Confirmed!'}
         </h2>
         <p className="text-muted-foreground text-sm md:text-base">
-          Your confidential session was booked in real-time and confirmed instantly.
+          {isAnonymous 
+            ? 'Your confidential anonymous session was secured with maximum privacy protection.'
+            : 'Your confidential session was booked in real-time and confirmed instantly.'
+          }
         </p>
         <div className="flex items-center justify-center space-x-2 text-sm text-green-600">
           <Zap className="h-4 w-4" />
-          <span>Booking confirmed instantly</span>
+          <span>{isAnonymous ? 'Anonymous booking secured' : 'Booking confirmed instantly'}</span>
         </div>
+        {isAnonymous && (
+          <div className="flex items-center justify-center space-x-2 text-sm text-blue-600">
+            <Shield className="h-4 w-4" />
+            <span>Privacy level: {privacyLevel.charAt(0).toUpperCase() + privacyLevel.slice(1)}</span>
+          </div>
+        )}
       </div>
 
       {/* Session Details with Enhanced Info */}
-      <Card className="text-left max-w-lg mx-auto border-green-200 bg-green-50/30">
-        <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-t-lg">
+      <Card className={`text-left max-w-lg mx-auto ${isAnonymous ? 'border-blue-200 bg-blue-50/30' : 'border-green-200 bg-green-50/30'}`}>
+        <CardHeader className={`${isAnonymous ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : 'bg-gradient-to-r from-green-500 to-emerald-500'} text-white rounded-t-lg`}>
           <CardTitle className="flex items-center space-x-2">
-            <Zap className="h-5 w-5" />
-            <span>Live Session Details</span>
+            {isAnonymous ? <Shield className="h-5 w-5" /> : <Zap className="h-5 w-5" />}
+            <span>{isAnonymous ? 'Anonymous Session Details' : 'Live Session Details'}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 mt-4">
+          {isAnonymous && (
+            <div className="bg-blue-50 rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-blue-700 font-medium">Your Anonymous ID</span>
+                <Badge className="bg-blue-100 text-blue-700 text-xs">
+                  Save This ID
+                </Badge>
+              </div>
+              <code className="text-sm bg-white px-2 py-1 rounded border text-blue-700 font-mono block text-center">
+                {anonymousId}
+              </code>
+              <p className="text-xs text-blue-600">
+                Use this ID to access your session and any follow-up communications.
+              </p>
+            </div>
+          )}
+          
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <span className="text-sm text-muted-foreground">Counselor</span>
+              <span className="text-sm text-muted-foreground">
+                {isAnonymous ? 'Your Counselor' : 'Counselor'}
+              </span>
               <div className="font-medium flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full" />
+                <div className={`w-2 h-2 ${isAnonymous ? 'bg-blue-500' : 'bg-green-500'} rounded-full`} />
                 <span>{selectedCounselorData?.name}</span>
               </div>
             </div>
             
             <div className="space-y-1">
               <span className="text-sm text-muted-foreground">Status</span>
-              <Badge className="bg-green-100 text-green-700">
-                {getCounselorStatus(selectedCounselor) === 'online' ? 'Available Now' : 'Confirmed'}
+              <Badge className={isAnonymous ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}>
+                {isAnonymous ? 'Anonymous Session' : getCounselorStatus(selectedCounselor) === 'online' ? 'Available Now' : 'Confirmed'}
               </Badge>
             </div>
           </div>
@@ -1209,28 +1607,80 @@ const Booking = () => {
               </div>
             </div>
           </div>
+
+          {isAnonymous && (
+            <div className="space-y-2 border-t pt-3">
+              <div className="text-sm font-medium text-blue-900">Privacy Protections Applied:</div>
+              <div className="space-y-1 text-xs text-blue-700">
+                <div className="flex items-center space-x-2">
+                  <Lock className="h-3 w-3" />
+                  <span>{privacyLevel === 'maximum' ? 'Maximum privacy with no data retention' : 
+                         privacyLevel === 'enhanced' ? 'Enhanced privacy with encrypted communication' : 
+                         'Basic privacy with standard protections'}</span>
+                </div>
+                {useEncryption && (
+                  <div className="flex items-center space-x-2">
+                    <Key className="h-3 w-3" />
+                    <span>End-to-end encrypted communication</span>
+                  </div>
+                )}
+                <div className="flex items-center space-x-2">
+                  <Database className="h-3 w-3" />
+                  <span>Data retention: {
+                    dataRetention === 'session-only' ? 'Deleted immediately after session' :
+                    dataRetention === '30-days' ? 'Kept for 30 days' :
+                    'Kept for 90 days'
+                  }</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <UserX className="h-3 w-3" />
+                  <span>Identity protected with alias: "{anonymousForm.alias}"</span>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Live booking ID */}
           <div className="bg-gray-50 p-3 rounded-lg">
-            <div className="text-sm text-muted-foreground mb-1">Booking Reference</div>
+            <div className="text-sm text-muted-foreground mb-1">
+              {isAnonymous ? 'Session Reference' : 'Booking Reference'}
+            </div>
             <div className="font-mono text-sm font-medium">
-              MB-{Date.now().toString().slice(-6)}-{selectedCounselor}
+              {isAnonymous ? `ANON-${anonymousId.split('-')[1]}` : `MB-${Date.now().toString().slice(-6)}-${selectedCounselor}`}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Enhanced Privacy Notice for Anonymous Bookings */}
+      {isAnonymous && (
+        <Alert className="max-w-lg mx-auto text-left">
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            <div className="space-y-2">
+              <p className="font-medium">Your Privacy is Protected</p>
+              <div className="text-sm space-y-1">
+                <p>• Your real identity is not stored or shared with the counselor</p>
+                <p>• Session communications use your anonymous ID only</p>
+                <p>• Data handling follows your selected privacy level</p>
+                <p>• Emergency protocols available if needed using your emergency code</p>
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Instant Action Buttons */}
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto">
           <Button 
             variant="outline" 
-            className="flex items-center space-x-2 border-blue-200 hover:bg-blue-50"
+            className={`flex items-center space-x-2 ${isAnonymous ? 'border-blue-200 hover:bg-blue-50' : 'border-green-200 hover:bg-green-50'}`}
             onClick={() => window.open('https://meet.google.com/new', '_blank')}
           >
             <Video className="h-4 w-4" />
-            <span>Join Session Now</span>
-            <Zap className="h-3 w-3 ml-1 text-blue-500" />
+            <span>{isAnonymous ? 'Join Anonymous Session' : 'Join Session Now'}</span>
+            <Zap className={`h-3 w-3 ml-1 ${isAnonymous ? 'text-blue-500' : 'text-green-500'}`} />
           </Button>
           
           <Button 
@@ -1248,21 +1698,33 @@ const Booking = () => {
             variant="ghost" 
             size="sm"
             onClick={() => alert('Reminder set!')}
-            className="text-blue-600 hover:bg-blue-50"
+            className={isAnonymous ? 'text-blue-600 hover:bg-blue-50' : 'text-green-600 hover:bg-green-50'}
           >
             <Bell className="h-4 w-4 mr-1" />
-            Set Reminder
+            {isAnonymous ? 'Anonymous Reminder' : 'Set Reminder'}
           </Button>
           
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => alert('Details shared!')}
-            className="text-green-600 hover:bg-green-50"
-          >
-            <MessageCircle className="h-4 w-4 mr-1" />
-            Share Details
-          </Button>
+          {isAnonymous ? (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => alert('Accessing anonymous portal...')}
+              className="text-blue-600 hover:bg-blue-50"
+            >
+              <Shield className="h-4 w-4 mr-1" />
+              Privacy Portal
+            </Button>
+          ) : (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => alert('Details shared!')}
+              className="text-green-600 hover:bg-green-50"
+            >
+              <MessageCircle className="h-4 w-4 mr-1" />
+              Share Details
+            </Button>
+          )}
           
           <Button 
             variant="ghost" 
@@ -1277,18 +1739,20 @@ const Booking = () => {
       </div>
 
       <div className="space-y-3">
-        <Alert className="max-w-lg mx-auto border-green-200 bg-green-50">
-          <Zap className="h-4 w-4" />
+        <Alert className={`max-w-lg mx-auto ${isAnonymous ? 'border-blue-200 bg-blue-50' : 'border-green-200 bg-green-50'}`}>
+          {isAnonymous ? <Shield className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
           <AlertDescription>
             <div className="text-sm">
-              <strong>Next Steps:</strong> You'll receive instant WhatsApp and email confirmations. 
-              Your counselor will contact you 10 minutes before the session.
+              <strong>Next Steps:</strong> {isAnonymous 
+                ? 'You will receive anonymous session access instructions through the secure portal. Your counselor has your alias and session preferences.' 
+                : 'You will receive instant WhatsApp and email confirmations. Your counselor will contact you 10 minutes before the session.'
+              }
             </div>
           </AlertDescription>
         </Alert>
         
         <p className="text-sm text-muted-foreground">
-          Real-time booking confirmed • Session protected • Privacy guaranteed
+          {isAnonymous ? 'Anonymous booking secured • Identity protected • Privacy guaranteed' : 'Real-time booking confirmed • Session protected • Privacy guaranteed'}
         </p>
         
         <div className="flex flex-col sm:flex-row justify-center gap-3 max-w-md mx-auto">
@@ -1302,11 +1766,26 @@ const Booking = () => {
               setSelectedCounselor('');
               setSelectedTime('');
               setSelectedDate(new Date());
-              setBookingForm({
-                name: '', email: '', phone: '', reason: '',
-                previousTherapy: '', notes: '', emergencyContact: '',
-                dateOfBirth: '', preferredContactMethod: 'email'
-              });
+              if (isAnonymous) {
+                setAnonymousForm({
+                  alias: '',
+                  ageRange: '',
+                  concerns: '',
+                  previousExperience: '',
+                  communicationStyle: '',
+                  sessionNotes: '',
+                  emergencyCode: '',
+                  preferredAnonymity: 'partial'
+                });
+                setAnonymousId('');
+                setIsAnonymous(false);
+              } else {
+                setBookingForm({
+                  name: '', email: '', phone: '', reason: '',
+                  previousTherapy: '', notes: '', emergencyContact: '',
+                  dateOfBirth: '', preferredContactMethod: 'email'
+                });
+              }
             }}
             className="w-full sm:w-auto"
           >

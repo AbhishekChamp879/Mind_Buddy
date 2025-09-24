@@ -10,7 +10,9 @@ import {
   Phone,
   Wifi,
   WifiOff,
-  Globe
+  Globe,
+  Video,
+  BookOpen
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,6 +27,10 @@ interface Message {
   timestamp: Date;
   severity?: 'low' | 'medium' | 'high' | 'crisis';
   language?: string;
+  actions?: Array<{type: 'emergency' | 'counselor' | 'resources' | 'followup', label: string, urgent?: boolean}>;
+  confidence?: number;
+  triggers?: string[];
+  riskFactors?: string[];
 }
 
 // Multilingual responses with comprehensive language support
@@ -248,6 +254,50 @@ const ChatWidget = () => {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [currentSeverity, setCurrentSeverity] = useState<'low' | 'medium' | 'high' | 'crisis' | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<Array<{message: string, severity: string, timestamp: Date}>>([]);
+
+  // Action handlers for enhanced crisis intervention
+  const handleAction = (action: {type: 'emergency' | 'counselor' | 'resources' | 'followup', label: string, urgent?: boolean}) => {
+    switch (action.type) {
+      case 'emergency':
+        // Redirect to crisis helpline or emergency services
+        const emergencyNumbers = {
+          en: '988', // US Suicide & Crisis Lifeline
+          es: '717-394-2631', // National Suicide Prevention Lifeline (Spanish)
+          hi: '9152987821', // AASRA India
+        };
+        const number = emergencyNumbers[selectedLanguage as keyof typeof emergencyNumbers] || emergencyNumbers.en;
+        window.open(`tel:${number}`, '_blank');
+        break;
+        
+      case 'counselor':
+        // Navigate to booking page or open video call
+        window.dispatchEvent(new CustomEvent('openBooking', { detail: { urgent: action.urgent } }));
+        break;
+        
+      case 'resources':
+        // Navigate to resources page with relevant filters
+        window.dispatchEvent(new CustomEvent('openResources', { 
+          detail: { 
+            category: currentSeverity === 'crisis' ? 'crisis' : 'coping',
+            urgent: action.urgent 
+          } 
+        }));
+        break;
+        
+      case 'followup':
+        // Add a follow-up message to continue the conversation
+        const followUpMessage: Message = {
+          id: Date.now().toString(),
+          type: 'ai',
+          content: 'How are you feeling right now? Would you like to talk more about what\'s troubling you?',
+          timestamp: new Date(),
+          language: selectedLanguage
+        };
+        setMessages(prev => [...prev, followUpMessage]);
+        break;
+    }
+  };
 
   // Update welcome message when language changes
   useEffect(() => {
@@ -272,70 +322,211 @@ const ChatWidget = () => {
     }
   }, [isOnline, offlineMessages]);
 
-  const analyzeMessage = (message: string, language: string): { severity: 'low' | 'medium' | 'high' | 'crisis', sentiment: 'positive' | 'neutral' | 'negative' } => {
+  // Enhanced AI Analysis with better crisis detection
+  const analyzeMessage = (message: string, language: string): { 
+    severity: 'low' | 'medium' | 'high' | 'crisis', 
+    sentiment: 'positive' | 'neutral' | 'negative',
+    confidence: number,
+    triggers: string[],
+    riskFactors: string[]
+  } => {
     const lowercaseMessage = message.toLowerCase();
     const langData = multilingualResponses[language] || multilingualResponses.en;
     
-    // Crisis keywords (immediate danger)
-    const crisisKeywords = ['suicide', 'kill myself', 'end it all', 'no point', 'better off dead', 'hurt myself', 'suicida', 'matarme', 'mort', 'mourir', 'selbstmord', 'töten', 'suicidio', 'uccidermi', 'suicídio', 'matar-me', '自杀', '自殺', '자살', 'انتحار', 'आत्महत्या', 'самоубийство'];
+    // Enhanced crisis detection with more comprehensive patterns
+    const crisisPatterns = {
+      suicide: ['suicide', 'kill myself', 'end it all', 'no point living', 'better off dead', 'hurt myself', 'don\'t want to live', 'want to die'],
+      selfHarm: ['cut myself', 'hurt myself', 'self harm', 'self-harm', 'want to hurt', 'pain will stop'],
+      despair: ['no hope left', 'nothing matters', 'can\'t go on', 'give up', 'no way out', 'trapped'],
+      immediate: ['tonight', 'today', 'right now', 'immediately', 'can\'t wait', 'this minute']
+    };
     
-    // High severity keywords
-    const highKeywords = ['hopeless', 'worthless', 'empty', 'numb', 'desperate', 'can\'t cope', 'sin esperanza', 'desesperado', 'désespéré', 'vide', 'hoffnungslos', 'verzweifelt', 'disperato', 'vuoto', 'desesperado', 'vazio', '绝望', '空虚', '절망적', 'يائس', 'फारغ', 'безнадежный', 'отчаянный'];
-    
-    // Medium severity keywords  
-    const mediumKeywords = ['anxious', 'stressed', 'worried', 'overwhelmed', 'tired', 'exhausted', 'ansioso', 'estresado', 'preocupado', 'anxieux', 'stressé', 'inquiet', 'ängstlich', 'gestresst', 'besorgt', 'ansioso', 'stressato', 'preoccupato', 'ansioso', 'estressado', 'preocupado', '焦虑', '压力', '担心', '불안한', '스트레스', 'قلق', 'चिंतित', 'тревожный'];
-    
-    // Positive keywords
-    const positiveKeywords = ['good', 'great', 'happy', 'better', 'improving', 'hopeful', 'bien', 'bueno', 'feliz', 'mejor', 'bon', 'heureux', 'mieux', 'gut', 'glücklich', 'besser', 'bene', 'felice', 'meglio', 'bom', 'feliz', 'melhor', '好', '快乐', '더 나은', '행복한', 'جيد', 'سعيد', 'अच्छा', 'खुश', 'хорошо', 'счастливый'];
+    // Multilingual crisis keywords
+    const multilingualCrisis = {
+      es: ['suicidio', 'matarme', 'morir', 'sin esperanza', 'acabar con todo'],
+      fr: ['suicide', 'mort', 'mourir', 'désespéré', 'en finir'],
+      de: ['selbstmord', 'töten', 'sterben', 'hoffnungslos', 'ende machen'],
+      it: ['suicidio', 'uccidermi', 'morire', 'disperato', 'finirla'],
+      pt: ['suicídio', 'matar-me', 'morrer', 'desesperado', 'acabar com tudo'],
+      zh: ['自杀', '自殺', '死', '绝望', '结束一切'],
+      ja: ['自殺', '死にたい', '絶望', 'おわり'],
+      ko: ['자살', '죽고싶다', '절망', '끝내고싶다'],
+      ar: ['انتحار', 'الموت', 'اليأس', 'إنهاء كل شيء'],
+      hi: ['आत्महत्या', 'मरना चाहता हूं', 'निराशा', 'सब कुछ खत्म'],
+      ru: ['самоубийство', 'умереть', 'безнадежность', 'покончить со всем']
+    };
+
+    // Risk factor patterns
+    const riskFactors = {
+      isolation: ['alone', 'lonely', 'no friends', 'nobody cares', 'abandoned'],
+      substance: ['drinking', 'drugs', 'pills', 'alcohol', 'high', 'drunk'],
+      trauma: ['abused', 'trauma', 'ptsd', 'flashbacks', 'nightmares'],
+      loss: ['lost someone', 'death', 'died', 'funeral', 'grief'],
+      financial: ['broke', 'homeless', 'unemployed', 'debt', 'money problems'],
+      relationship: ['breakup', 'divorce', 'cheated', 'left me', 'rejected'],
+      academic: ['failed', 'expelled', 'grades', 'exam stress', 'college pressure']
+    };
 
     let severity: 'low' | 'medium' | 'high' | 'crisis' = 'low';
     let sentiment: 'positive' | 'neutral' | 'negative' = 'neutral';
+    let confidence = 0;
+    let triggers: string[] = [];
+    let detectedRiskFactors: string[] = [];
 
-    // Check for crisis keywords
-    if (crisisKeywords.some(keyword => lowercaseMessage.includes(keyword))) {
+    // Crisis detection with higher precision
+    let crisisScore = 0;
+    Object.entries(crisisPatterns).forEach(([category, patterns]) => {
+      patterns.forEach(pattern => {
+        if (lowercaseMessage.includes(pattern)) {
+          crisisScore += category === 'immediate' ? 3 : 2;
+          triggers.push(pattern);
+        }
+      });
+    });
+
+    // Check multilingual crisis terms
+    const currentLangCrisis = multilingualCrisis[language as keyof typeof multilingualCrisis];
+    if (currentLangCrisis) {
+      currentLangCrisis.forEach(term => {
+        if (lowercaseMessage.includes(term)) {
+          crisisScore += 2;
+          triggers.push(term);
+        }
+      });
+    }
+
+    // Risk factor analysis
+    Object.entries(riskFactors).forEach(([category, patterns]) => {
+      patterns.forEach(pattern => {
+        if (lowercaseMessage.includes(pattern)) {
+          crisisScore += 1;
+          detectedRiskFactors.push(category);
+        }
+      });
+    });
+
+    // Determine severity based on comprehensive analysis
+    if (crisisScore >= 4 || triggers.some(t => crisisPatterns.suicide.includes(t))) {
       severity = 'crisis';
       sentiment = 'negative';
-    }
-    // Check for high severity keywords
-    else if (highKeywords.some(keyword => lowercaseMessage.includes(keyword))) {
+      confidence = Math.min(0.95, 0.7 + (crisisScore * 0.05));
+    } else if (crisisScore >= 2) {
       severity = 'high';
       sentiment = 'negative';
-    }
-    // Check for medium severity keywords
-    else if (mediumKeywords.some(keyword => lowercaseMessage.includes(keyword))) {
-      severity = 'medium';
-      sentiment = 'negative';
-    }
-    // Check for positive sentiment
-    else if (positiveKeywords.some(keyword => lowercaseMessage.includes(keyword))) {
-      severity = 'low';
-      sentiment = 'positive';
+      confidence = Math.min(0.85, 0.5 + (crisisScore * 0.1));
+    } else {
+      // Standard sentiment analysis
+      const negativeWords = ['sad', 'depressed', 'anxious', 'stressed', 'worried', 'overwhelmed', 'tired', 'exhausted', 'hopeless', 'worthless'];
+      const positiveWords = ['good', 'great', 'happy', 'better', 'improving', 'hopeful', 'excited', 'grateful', 'peaceful'];
+      
+      const negCount = negativeWords.filter(word => lowercaseMessage.includes(word)).length;
+      const posCount = positiveWords.filter(word => lowercaseMessage.includes(word)).length;
+      
+      if (negCount > posCount) {
+        severity = negCount > 3 ? 'high' : negCount > 1 ? 'medium' : 'low';
+        sentiment = 'negative';
+        confidence = Math.min(0.8, 0.4 + (negCount * 0.1));
+      } else if (posCount > 0) {
+        severity = 'low';
+        sentiment = 'positive';
+        confidence = Math.min(0.8, 0.4 + (posCount * 0.1));
+      } else {
+        confidence = 0.3; // Low confidence for neutral messages
+      }
     }
 
-    return { severity, sentiment };
+    return { severity, sentiment, confidence, triggers, riskFactors: detectedRiskFactors };
   };
 
-  const getContextualResponse = (analysis: { severity: 'low' | 'medium' | 'high' | 'crisis', sentiment: 'positive' | 'neutral' | 'negative' }, language: string): string => {
+  // Enhanced contextual response with crisis intervention
+  const getContextualResponse = (
+    analysis: { 
+      severity: 'low' | 'medium' | 'high' | 'crisis', 
+      sentiment: 'positive' | 'neutral' | 'negative',
+      confidence: number,
+      triggers: string[],
+      riskFactors: string[]
+    }, 
+    language: string
+  ): { content: string; actions: Array<{type: 'emergency' | 'counselor' | 'resources' | 'followup', label: string, urgent?: boolean}> } => {
     const langData = multilingualResponses[language] || multilingualResponses.en;
     
     if (analysis.severity === 'crisis') {
-      return langData.crisisMessage;
+      const actions = [
+        { type: 'emergency' as const, label: 'Emergency Helpline', urgent: true },
+        { type: 'counselor' as const, label: 'Immediate Counselor', urgent: true },
+        { type: 'resources' as const, label: 'Crisis Resources' }
+      ];
+      
+      // Immediate crisis intervention message
+      let crisisResponse = langData.crisisMessage + "\n\n";
+      
+      if (analysis.riskFactors.length > 0) {
+        crisisResponse += `I notice you're dealing with ${analysis.riskFactors.join(', ')} issues. `;
+      }
+      
+      crisisResponse += "Please reach out for immediate support. You are not alone, and there are people who want to help you right now.";
+      
+      return { content: crisisResponse, actions };
     }
     
-    // Get appropriate response based on severity
-    const severityResponses = langData.responses.filter(r => r.severity === analysis.severity);
-    if (severityResponses.length > 0) {
-      return severityResponses[Math.floor(Math.random() * severityResponses.length)].content;
+    if (analysis.severity === 'high') {
+      const actions = [
+        { type: 'counselor' as const, label: 'Book Counselor' },
+        { type: 'resources' as const, label: 'Support Resources' },
+        { type: 'emergency' as const, label: 'Crisis Helpline' }
+      ];
+      
+      let response = "I'm genuinely concerned about what you're sharing. ";
+      
+      if (analysis.confidence > 0.7) {
+        response += "Based on what you've told me, it sounds like you're experiencing significant distress. ";
+      }
+      
+      if (analysis.riskFactors.includes('isolation')) {
+        response += "Feeling isolated can make everything seem worse. ";
+      }
+      
+      response += "It's important that you connect with professional support. Would you like me to help you find immediate resources?";
+      
+      return { content: response, actions };
     }
     
-    // Fallback to follow-up based on sentiment
-    const followUps = langData.followUps.filter(f => f.trigger === analysis.sentiment);
-    if (followUps.length > 0) {
-      return followUps[Math.floor(Math.random() * followUps.length)].content;
+    if (analysis.severity === 'medium') {
+      const actions = [
+        { type: 'resources' as const, label: 'Coping Resources' },
+        { type: 'counselor' as const, label: 'Schedule Session' }
+      ];
+      
+      let response = langData.responses.find(r => r.severity === 'medium')?.content || 
+        "I understand you're going through a challenging time. ";
+      
+      if (analysis.riskFactors.includes('academic')) {
+        response += "Academic stress can feel overwhelming, but there are effective ways to manage it. ";
+      } else if (analysis.riskFactors.includes('relationship')) {
+        response += "Relationship difficulties can be very painful. ";
+      }
+      
+      response += "Have these feelings been persistent, or are they related to specific recent events?";
+      
+      return { content: response, actions };
     }
     
-    // Default fallback
-    return langData.responses[0].content;
+    // Low severity or positive responses
+    const actions = analysis.sentiment === 'positive' ? 
+      [{ type: 'resources' as const, label: 'Wellness Tips' }] :
+      [{ type: 'resources' as const, label: 'Self-Care Resources' }];
+    
+    if (analysis.sentiment === 'positive') {
+      const response = langData.followUps.find(f => f.trigger === 'positive')?.content || 
+        "That's wonderful to hear! What's been helping you feel this way?";
+      return { content: response, actions };
+    }
+    
+    const response = langData.responses.find(r => r.severity === 'low')?.content || 
+      "Thank you for sharing. How would you describe your overall mood today?";
+    
+    return { content: response, actions };
   };
   const handleSendMessage = () => {
     if (!inputMessage.trim()) return;
@@ -357,15 +548,19 @@ const ChatWidget = () => {
         const analysis = analyzeMessage(inputMessage, selectedLanguage);
         setCurrentSeverity(analysis.severity);
 
-        const responseContent = getContextualResponse(analysis, selectedLanguage);
+        const aiResponse = getContextualResponse(analysis, selectedLanguage);
 
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
           type: 'ai',
-          content: responseContent,
+          content: aiResponse.content,
           timestamp: new Date(),
           severity: analysis.severity,
-          language: selectedLanguage
+          language: selectedLanguage,
+          actions: aiResponse.actions,
+          confidence: analysis.confidence,
+          triggers: analysis.triggers,
+          riskFactors: analysis.riskFactors
         };
 
         setMessages(prev => [...prev, aiMessage]);
@@ -485,21 +680,62 @@ const ChatWidget = () => {
                         : 'bg-muted text-muted-foreground'
                     }`}
                   >
-                    {message.content}
-                    {message.severity === 'high' || message.severity === 'crisis' && (
-                      <div className="mt-2 pt-2 border-t border-border/20">
-                        <div className="flex items-center space-x-2 text-xs">
-                          <AlertTriangle className="h-3 w-3 text-severity-high" />
-                          <span className="text-severity-high">Immediate support recommended</span>
+                    <div className="mb-2">{message.content}</div>
+                    
+                    {/* Enhanced Action Buttons */}
+                    {message.actions && message.actions.length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-border/20">
+                        {(message.severity === 'crisis' || message.severity === 'high') && (
+                          <div className="flex items-center space-x-2 text-xs mb-2">
+                            <AlertTriangle className={`h-3 w-3 ${message.severity === 'crisis' ? 'text-red-600' : 'text-orange-500'}`} />
+                            <span className={`${message.severity === 'crisis' ? 'text-red-600 font-semibold' : 'text-orange-500'}`}>
+                              {message.severity === 'crisis' ? 'CRISIS DETECTED - Immediate help available' : 'High concern - Support recommended'}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Confidence and Analysis Display */}
+                        {message.confidence && message.confidence > 0.7 && (
+                          <div className="text-xs text-muted-foreground mb-2">
+                            Analysis confidence: {Math.round(message.confidence * 100)}%
+                            {message.triggers && message.triggers.length > 0 && (
+                              <span className="ml-2">• Detected concerns: {message.triggers.slice(0, 2).join(', ')}</span>
+                            )}
+                          </div>
+                        )}
+                        
+                        <div className="flex flex-wrap gap-2">
+                          {message.actions.map((action, index) => (
+                            <Button
+                              key={index}
+                              variant={action.urgent ? "destructive" : action.type === 'emergency' ? "destructive" : "secondary"}
+                              size="sm"
+                              className={`text-xs ${action.urgent ? 'animate-pulse' : ''}`}
+                              onClick={() => handleAction(action)}
+                            >
+                              {action.type === 'emergency' && <Phone className="h-3 w-3 mr-1" />}
+                              {action.type === 'counselor' && <Video className="h-3 w-3 mr-1" />}
+                              {action.type === 'resources' && <BookOpen className="h-3 w-3 mr-1" />}
+                              {action.type === 'followup' && <MessageCircle className="h-3 w-3 mr-1" />}
+                              {action.label}
+                            </Button>
+                          ))}
                         </div>
-                        <div className="mt-1 flex space-x-1">
-                          <Button variant="safety" size="sm" className="text-xs">
-                            <Phone className="h-3 w-3 mr-1" />
-                            Crisis Helpline
-                          </Button>
-                          <Button variant="trust" size="sm" className="text-xs">
-                            Book Counselor
-                          </Button>
+                      </div>
+                    )}
+                    
+                    {/* Risk Factor Indicators */}
+                    {message.riskFactors && message.riskFactors.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border/10">
+                        <div className="text-xs text-muted-foreground">
+                          <span className="font-medium">Areas of concern:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {message.riskFactors.slice(0, 3).map((factor, index) => (
+                              <Badge key={index} variant="outline" className="text-xs px-1 py-0">
+                                {factor}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}

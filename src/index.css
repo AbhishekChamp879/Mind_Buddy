@@ -1,9 +1,9 @@
+/* Import modern UI enhancements */
+@import './styles/modern-ui.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import modern UI enhancements */
-@import './styles/modern-ui.css';
 
 /* MindBuddy Design System - Mental Health Platform
 All colors MUST be HSL. Calming, accessible, stigma-free design.

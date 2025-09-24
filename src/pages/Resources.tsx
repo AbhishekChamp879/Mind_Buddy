@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   BookOpen, 
   Play, 
@@ -18,18 +19,129 @@ import {
   Coffee,
   Zap,
   Filter,
-  Phone
+  Phone,
+  Globe,
+  Star,
+  Tag,
+  ChevronDown,
+  X,
+  ArrowUpDown,
+  Grid,
+  List,
+  Bookmark,
+  Share2
 } from 'lucide-react';
+
+// Enhanced language support
+const languages = {
+  english: { name: 'English', icon: '🇺🇸', code: 'en' },
+  hindi: { name: 'हिंदी', icon: '🇮🇳', code: 'hi' },
+  spanish: { name: 'Español', icon: '🇪🇸', code: 'es' },
+  tamil: { name: 'தமிழ்', icon: '🇮🇳', code: 'ta' },
+  bengali: { name: 'বাংলা', icon: '🇧🇩', code: 'bn' },
+  urdu: { name: 'اردو', icon: '🇵🇰', code: 'ur' },
+  gujarati: { name: 'ગુજરાતી', icon: '🇮🇳', code: 'gu' },
+  marathi: { name: 'मराठी', icon: '🇮🇳', code: 'mr' },
+  french: { name: 'Français', icon: '🇫🇷', code: 'fr' },
+  german: { name: 'Deutsch', icon: '🇩🇪', code: 'de' },
+  portuguese: { name: 'Português', icon: '🇵🇹', code: 'pt' },
+  chinese: { name: '中文', icon: '🇨🇳', code: 'zh' },
+  arabic: { name: 'العربية', icon: '🇸🇦', code: 'ar' }
+};
+
+// Enhanced categories with multi-language labels
+const categories = {
+  all: { 
+    en: 'All Resources', 
+    hi: 'सभी संसाधन',
+    es: 'Todos los Recursos',
+    ta: 'அனைத்து வளங்கள்',
+    color: 'bg-blue-100 text-blue-800',
+    icon: BookOpen
+  },
+  stress: { 
+    en: 'Stress Management', 
+    hi: 'तनाव प्रबंधन',
+    es: 'Manejo del Estrés',
+    ta: 'மன அழுத்த மேலாண்மை',
+    color: 'bg-red-100 text-red-800',
+    icon: Heart
+  },
+  mindfulness: { 
+    en: 'Mindfulness & Meditation', 
+    hi: 'ध्यान और सचेतता',
+    es: 'Mindfulness y Meditación',
+    ta: 'மனநிறைவு மற்றும் தியானம்',
+    color: 'bg-purple-100 text-purple-800',
+    icon: Brain
+  },
+  sleep: { 
+    en: 'Sleep Health', 
+    hi: 'नींद की स्वास्थ्य',
+    es: 'Salud del Sueño',
+    ta: 'தூக்க ஆரோக்கியம்',
+    color: 'bg-indigo-100 text-indigo-800',
+    icon: Moon
+  },
+  anxiety: { 
+    en: 'Anxiety & Panic', 
+    hi: 'चिंता और घबराहट',
+    es: 'Ansiedad y Pánico',
+    ta: 'கவலை மற்றும் பீதி',
+    color: 'bg-orange-100 text-orange-800',
+    icon: Zap
+  },
+  depression: { 
+    en: 'Depression Support', 
+    hi: 'अवसाद सहायता',
+    es: 'Apoyo para la Depresión',
+    ta: 'மன அழுத்தத்திற்கான ஆதரவு',
+    color: 'bg-gray-100 text-gray-800',
+    icon: Heart
+  },
+  study: { 
+    en: 'Study Skills', 
+    hi: 'अध्ययन कौशल',
+    es: 'Habilidades de Estudio',
+    ta: 'படிப்பு திறன்கள்',
+    color: 'bg-green-100 text-green-800',
+    icon: Coffee
+  },
+  trauma: { 
+    en: 'Trauma Recovery', 
+    hi: 'आघात से उबरना',
+    es: 'Recuperación del Trauma',
+    ta: 'அதிர்ச்சியிலிருந்து மீட்சி',
+    color: 'bg-pink-100 text-pink-800',
+    icon: Heart
+  },
+  relationships: { 
+    en: 'Relationships', 
+    hi: 'रिश्ते',
+    es: 'Relaciones',
+    ta: 'உறவுகள்',
+    color: 'bg-teal-100 text-teal-800',
+    icon: Users
+  },
+  crisis: {
+    en: 'Crisis Resources',
+    hi: 'संकट संसाधन',
+    es: 'Recursos de Crisis',
+    ta: 'நெருக்கடி வளங்கள்',
+    color: 'bg-red-100 text-red-800',
+    icon: Phone
+  }
+};
 
 interface Resource {
   id: string;
   title: string;
   description: string;
   type: 'article' | 'video' | 'audio' | 'tool' | 'pdf';
-  category: 'stress' | 'mindfulness' | 'sleep' | 'anxiety' | 'depression' | 'study' | 'trauma' | 'relationships';
+  category: keyof typeof categories;
   duration?: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
-  language: 'english' | 'hindi' | 'spanish' | 'tamil' | 'bengali';
+  language: keyof typeof languages;
   thumbnail?: string;
   views?: number;
   rating?: number;
@@ -38,6 +150,9 @@ interface Resource {
   author?: string;
   publishedDate?: string;
   tags?: string[];
+  isBookmarked?: boolean;
+  culturalContext?: string;
+  accessibilityFeatures?: string[];
 }
 
 const mockResources: Resource[] = [
@@ -292,31 +407,70 @@ const mockResources: Resource[] = [
 
 const Resources = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<keyof typeof categories>('all');
+  const [selectedLanguage, setSelectedLanguage] = useState<keyof typeof languages | 'all'>('all');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all');
+  const [selectedType, setSelectedType] = useState<'all' | 'article' | 'video' | 'audio' | 'tool' | 'pdf'>('all');
+  const [sortBy, setSortBy] = useState<'relevance' | 'popularity' | 'rating' | 'recent'>('relevance');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
+  const [currentLanguageContext, setCurrentLanguageContext] = useState<keyof typeof languages>('english');
 
-  const categories = [
-    { id: 'all', label: 'All Categories', icon: BookOpen },
-    { id: 'stress', label: 'Stress Relief', icon: Heart },
-    { id: 'mindfulness', label: 'Mindfulness', icon: Brain },
-    { id: 'sleep', label: 'Sleep Hygiene', icon: Moon },
-    { id: 'anxiety', label: 'Anxiety & Exams', icon: Zap },
-    { id: 'depression', label: 'Depression Support', icon: Coffee },
-    { id: 'study', label: 'Study Skills', icon: BookOpen },
-    { id: 'trauma', label: 'Trauma Recovery', icon: Heart },
-    { id: 'relationships', label: 'Relationships', icon: Users },
-  ];
+  // Enhanced filtering and search
+  const filteredResources = useMemo(() => {
+    let filtered = mockResources.filter(resource => {
+      const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           resource.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           resource.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      const matchesCategory = selectedCategory === 'all' || resource.category === selectedCategory;
+      const matchesLanguage = selectedLanguage === 'all' || resource.language === selectedLanguage;
+      const matchesDifficulty = selectedDifficulty === 'all' || resource.difficulty === selectedDifficulty;
+      const matchesType = selectedType === 'all' || resource.type === selectedType;
+      const matchesBookmark = !bookmarkedOnly || resource.isBookmarked;
 
-  const filteredResources = mockResources.filter(resource => {
-    const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         resource.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || resource.category === selectedCategory;
-    const matchesLanguage = selectedLanguage === 'all' || resource.language === selectedLanguage;
-    const matchesType = selectedType === 'all' || resource.type === selectedType;
+      return matchesSearch && matchesCategory && matchesLanguage && matchesDifficulty && matchesType && matchesBookmark;
+    });
 
-    return matchesSearch && matchesCategory && matchesLanguage && matchesType;
-  });
+    // Sort results
+    switch (sortBy) {
+      case 'popularity':
+        filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
+        break;
+      case 'rating':
+        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      case 'recent':
+        filtered.sort((a, b) => new Date(b.publishedDate || '').getTime() - new Date(a.publishedDate || '').getTime());
+        break;
+      default:
+        // Keep original order for relevance
+        break;
+    }
+
+    return filtered;
+  }, [searchQuery, selectedCategory, selectedLanguage, selectedDifficulty, selectedType, sortBy, bookmarkedOnly]);
+
+  const toggleBookmark = (resourceId: string) => {
+    // In a real app, this would update the backend
+    const resourceIndex = mockResources.findIndex(r => r.id === resourceId);
+    if (resourceIndex !== -1) {
+      mockResources[resourceIndex].isBookmarked = !mockResources[resourceIndex].isBookmarked;
+    }
+  };
+
+  const shareResource = (resource: Resource) => {
+    if (navigator.share) {
+      navigator.share({
+        title: resource.title,
+        text: resource.description,
+        url: resource.url || window.location.href
+      });
+    } else {
+      // Fallback to clipboard
+      navigator.clipboard.writeText(`${resource.title}: ${resource.url || window.location.href}`);
+    }
+  };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -391,16 +545,16 @@ const Resources = () => {
 
             <TabsContent value="category" className="mt-4">
               <div className="flex flex-wrap gap-2">
-                {categories.map((category) => (
+                {Object.entries(categories).map(([key, category]) => (
                   <Button
-                    key={category.id}
-                    variant={selectedCategory === category.id ? "default" : "outline"}
+                    key={key}
+                    variant={selectedCategory === key ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setSelectedCategory(category.id)}
-                    className="flex items-center space-x-1"
+                    onClick={() => setSelectedCategory(key as keyof typeof categories)}
+                    className={`flex items-center space-x-1 ${category.color.replace('bg-', 'hover:bg-')}`}
                   >
                     <category.icon className="h-4 w-4" />
-                    <span>{category.label}</span>
+                    <span>{category[currentLanguageContext] || category.en}</span>
                   </Button>
                 ))}
               </div>
@@ -408,7 +562,7 @@ const Resources = () => {
 
             <TabsContent value="type" className="mt-4">
               <div className="flex flex-wrap gap-2">
-                {['all', 'article', 'video', 'audio', 'tool', 'pdf'].map((type) => (
+                {(['all', 'article', 'video', 'audio', 'tool', 'pdf'] as const).map((type) => (
                   <Button
                     key={type}
                     variant={selectedType === type ? "default" : "outline"}
@@ -424,18 +578,22 @@ const Resources = () => {
 
             <TabsContent value="language" className="mt-4">
               <div className="flex flex-wrap gap-2">
-                {['all', 'english', 'hindi', 'tamil', 'bengali', 'spanish'].map((language) => (
+                {(['all', ...Object.keys(languages)] as const).map((language) => (
                   <Button
                     key={language}
                     variant={selectedLanguage === language ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setSelectedLanguage(language)}
-                    className="capitalize"
+                    onClick={() => setSelectedLanguage(language as typeof selectedLanguage)}
+                    className="flex items-center space-x-1"
                   >
-                    {language === 'all' ? 'All Languages' : 
-                     language === 'hindi' ? 'हिंदी' :
-                     language === 'tamil' ? 'தமிழ்' :
-                     language === 'bengali' ? 'বাংলা' : language}
+                    {language === 'all' ? (
+                      <span>All Languages</span>
+                    ) : (
+                      <>
+                        <span>{languages[language as keyof typeof languages]?.icon}</span>
+                        <span>{languages[language as keyof typeof languages]?.name}</span>
+                      </>
+                    )}
                   </Button>
                 ))}
               </div>
@@ -486,13 +644,46 @@ const Resources = () => {
                     <div className={`p-2 rounded-md ${getTypeColor(resource.type)}`}>
                       <TypeIcon className="h-4 w-4" />
                     </div>
+                    <Badge 
+                      variant="secondary" 
+                      className={`${categories[resource.category]?.color} flex items-center space-x-1`}
+                    >
+                      {(() => {
+                        const CategoryIcon = categories[resource.category]?.icon || BookOpen;
+                        return <CategoryIcon className="h-3 w-3" />;
+                      })()}
+                      <span>{categories[resource.category]?.[currentLanguageContext] || categories[resource.category]?.en}</span>
+                    </Badge>
                     <Badge variant="secondary" className={getDifficultyColor(resource.difficulty)}>
                       {resource.difficulty}
                     </Badge>
                   </div>
-                  <Badge variant="outline" className="capitalize">
-                    {resource.language}
-                  </Badge>
+                  <div className="flex items-center space-x-1">
+                    <Badge variant="outline" className="flex items-center space-x-1">
+                      <span>{languages[resource.language]?.icon}</span>
+                      <span className="text-xs">{languages[resource.language]?.name}</span>
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => toggleBookmark(resource.id)}
+                      title={resource.isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+                    >
+                      <Bookmark 
+                        className={`h-3 w-3 ${resource.isBookmarked ? 'fill-current text-primary' : 'text-muted-foreground'}`} 
+                      />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => shareResource(resource)}
+                      title="Share resource"
+                    >
+                      <Share2 className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -567,11 +758,25 @@ const Resources = () => {
                       }
                     }}
                   >
-                    {resource.type === 'article' ? 'Read Article' : 
-                     resource.type === 'video' ? 'Watch Video' :
-                     resource.type === 'audio' ? 'Listen Now' : 
-                     resource.type === 'pdf' ? 'View PDF' :
-                     'Use Tool'}
+                    {resource.type === 'article' ? 
+                      (currentLanguageContext === 'hindi' ? 'लेख पढ़ें' :
+                       currentLanguageContext === 'spanish' ? 'Leer Artículo' :
+                       'Read Article') : 
+                     resource.type === 'video' ? 
+                      (currentLanguageContext === 'hindi' ? 'वीडियो देखें' :
+                       currentLanguageContext === 'spanish' ? 'Ver Video' :
+                       'Watch Video') :
+                     resource.type === 'audio' ? 
+                      (currentLanguageContext === 'hindi' ? 'सुनें' :
+                       currentLanguageContext === 'spanish' ? 'Escuchar' :
+                       'Listen Now') : 
+                     resource.type === 'pdf' ? 
+                      (currentLanguageContext === 'hindi' ? 'PDF देखें' :
+                       currentLanguageContext === 'spanish' ? 'Ver PDF' :
+                       'View PDF') :
+                      (currentLanguageContext === 'hindi' ? 'उपकरण का उपयोग करें' :
+                       currentLanguageContext === 'spanish' ? 'Usar Herramienta' :
+                       'Use Tool')}
                   </Button>
                   {resource.downloadUrl && (
                     <Button 
@@ -586,9 +791,21 @@ const Resources = () => {
                         link.click();
                         document.body.removeChild(link);
                       }}
+                      title={currentLanguageContext === 'hindi' ? 'डाउनलोड' :
+                             currentLanguageContext === 'spanish' ? 'Descargar' :
+                             'Download'}
                     >
                       <Download className="h-4 w-4" />
                     </Button>
+                  )}
+                  
+                  {/* Cultural Context Indicator */}
+                  {resource.culturalContext && (
+                    <Badge variant="outline" className="text-xs bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700">
+                      {currentLanguageContext === 'hindi' ? 'स्थानीय संदर्भ' :
+                       currentLanguageContext === 'spanish' ? 'Contexto Local' :
+                       'Local Context'}
+                    </Badge>
                   )}
                 </div>
               </CardContent>

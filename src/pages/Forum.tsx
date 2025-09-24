@@ -33,7 +33,9 @@ import {
   ChevronUp,
   Pin,
   Zap,
-  Award
+  Award,
+  List,
+  Grid
 } from 'lucide-react';
 
 interface ForumReply {
@@ -45,6 +47,21 @@ interface ForumReply {
   likes: number;
   isVerifiedMentor?: boolean;
   parentId?: string; // For nested replies
+  isModerated?: boolean;
+  isReported?: boolean;
+  reportCount?: number;
+  isHidden?: boolean;
+  aiSentimentScore?: number;
+  supportiveScore?: number;
+}
+
+interface ModerationAction {
+  id: string;
+  postId: string;
+  action: 'approve' | 'hide' | 'warn' | 'ban';
+  reason: string;
+  moderatorId: string;
+  timestamp: Date;
 }
 
 interface ForumPost {
@@ -62,8 +79,15 @@ interface ForumPost {
   tags: string[];
   isPinned?: boolean;
   isLocked?: boolean;
+  isModerated?: boolean;
+  isReported?: boolean;
+  reportCount?: number;
   likedBy: string[];
   bookmarkedBy: string[];
+  aiSentimentScore?: number;
+  supportiveScore?: number;
+  helpfulness?: number;
+  lastActive?: Date;
 }
 
 const mockPosts: ForumPost[] = [
@@ -197,6 +221,10 @@ const Forum = () => {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
   const [isReplyAnonymous, setIsReplyAnonymous] = useState(true);
+  const [showModeration, setShowModeration] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState('');
+  const [threadedView, setThreadedView] = useState(true);
   const [newPost, setNewPost] = useState({
     title: '',
     content: '',
@@ -204,6 +232,60 @@ const Forum = () => {
     isAnonymous: true,
     tags: ''
   });
+
+  // AI-powered content analysis
+  const analyzeContent = (content: string): { sentiment: number, supportive: number, helpful: number } => {
+    // Simplified AI analysis - in real app would use actual AI service
+    const supportiveWords = ['support', 'help', 'understand', 'care', 'listen', 'here for you', 'not alone'];
+    const negativeWords = ['hate', 'stupid', 'worthless', 'terrible', 'awful'];
+    const helpfulWords = ['advice', 'tip', 'suggest', 'recommend', 'experience', 'worked for me'];
+
+    const words = content.toLowerCase().split(' ');
+    const supportiveCount = supportiveWords.filter(word => content.toLowerCase().includes(word)).length;
+    const negativeCount = negativeWords.filter(word => content.toLowerCase().includes(word)).length;
+    const helpfulCount = helpfulWords.filter(word => content.toLowerCase().includes(word)).length;
+
+    return {
+      sentiment: Math.max(0, Math.min(1, (supportiveCount - negativeCount) / words.length * 10 + 0.5)),
+      supportive: Math.min(1, supportiveCount / 3),
+      helpful: Math.min(1, helpfulCount / 2)
+    };
+  };
+
+  // Enhanced moderation actions
+  const moderatePost = (postId: string, action: 'approve' | 'hide' | 'warn' | 'ban', reason: string) => {
+    setPosts(prev => prev.map(post => 
+      post.id === postId 
+        ? { ...post, isModerated: true, isHidden: action === 'hide' }
+        : post
+    ));
+  };
+
+  const reportPost = (postId: string, reason: string) => {
+    setPosts(prev => prev.map(post => 
+      post.id === postId 
+        ? { ...post, isReported: true, reportCount: (post.reportCount || 0) + 1 }
+        : post
+    ));
+    setReportDialogOpen(null);
+    setReportReason('');
+  };
+
+  // Community interaction features
+  const toggleBookmark = (postId: string) => {
+    setPosts(prev => prev.map(post => {
+      if (post.id === postId) {
+        const bookmarked = post.bookmarkedBy.includes(user?.id || '');
+        return {
+          ...post,
+          bookmarkedBy: bookmarked 
+            ? post.bookmarkedBy.filter(id => id !== user?.id)
+            : [...post.bookmarkedBy, user?.id || '']
+        };
+      }
+      return post;
+    }));
+  };
 
   const categories = [
     'all',
@@ -710,7 +792,7 @@ const Forum = () => {
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      onClick={() => handleBookmarkPost(post.id)}
+                      onClick={() => toggleBookmark(post.id)}
                       className={`hover:shadow-soft transition-all duration-300 ${
                         isBookmarked ? 'text-secondary bg-secondary/10' : ''
                       }`}
@@ -718,8 +800,95 @@ const Forum = () => {
                       <Bookmark className={`h-4 w-4 mr-1 ${isBookmarked ? 'fill-current' : ''}`} />
                       {isBookmarked ? 'Saved' : 'Save'}
                     </Button>
+
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setReportDialogOpen(post.id)}
+                      className="hover:shadow-soft transition-all duration-300 text-orange-600 hover:text-orange-700"
+                    >
+                      <Flag className="h-4 w-4 mr-1" />
+                      Report
+                    </Button>
+
+                    {/* Moderation controls for admins/moderators */}
+                    {user?.role === 'admin' || user?.role === 'moderator' ? (
+                      <>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setShowModeration(!showModeration)}
+                          className="hover:shadow-soft transition-all duration-300 text-red-600 hover:text-red-700"
+                        >
+                          <Shield className="h-4 w-4 mr-1" />
+                          Moderate
+                        </Button>
+                      </>
+                    ) : null}
+
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/forum/post/${post.id}`);
+                      }}
+                      className="hover:shadow-soft transition-all duration-300"
+                    >
+                      <Share2 className="h-4 w-4 mr-1" />
+                      Share
+                    </Button>
                   </div>
                 </div>
+
+                {/* AI Analysis Indicators */}
+                {post.supportiveScore && post.supportiveScore > 0.7 && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-3">
+                    <div className="flex items-center space-x-2">
+                      <Heart className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-800 font-medium">
+                        Community recognizes this as a supportive post
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Moderation Panel */}
+                {showModeration && (user?.role === 'admin' || user?.role === 'moderator') && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-3">
+                    <h4 className="font-medium text-red-800 mb-2">Moderation Actions</h4>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => moderatePost(post.id, 'approve', 'Approved by moderator')}
+                        className="text-green-600 border-green-300 hover:bg-green-50"
+                      >
+                        Approve
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => moderatePost(post.id, 'hide', 'Hidden by moderator')}
+                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                      >
+                        Hide
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => moderatePost(post.id, 'warn', 'User warned')}
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                      >
+                        Warn User
+                      </Button>
+                    </div>
+                    {post.reportCount && post.reportCount > 0 && (
+                      <p className="text-sm text-red-600 mt-2">
+                        This post has been reported {post.reportCount} time(s)
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Reply Form */}
                 {replyingTo === post.id && (
@@ -775,44 +944,114 @@ const Forum = () => {
                   </div>
                 )}
 
-                {/* Replies Section */}
+                {/* Enhanced Replies Section */}
                 {post.replies.length > 0 && isExpanded && (
                   <div className="mt-4 space-y-3">
-                    <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
-                      <MessageCircle className="h-4 w-4" />
-                      <span>{post.replies.length} Replies</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                        <MessageCircle className="h-4 w-4" />
+                        <span>{post.replies.length} Replies</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setThreadedView(!threadedView)}
+                        className="text-xs"
+                      >
+                        {threadedView ? <List className="h-3 w-3 mr-1" /> : <Grid className="h-3 w-3 mr-1" />}
+                        {threadedView ? 'Linear View' : 'Threaded View'}
+                      </Button>
                     </div>
                     
-                    {post.replies.map((reply) => (
-                      <div key={reply.id} className="ml-4 p-3 bg-background/50 rounded-lg border border-border/40">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium">{reply.author}</span>
-                            {reply.isAnonymous && (
-                              <Badge variant="outline" className="text-xs">
-                                Anonymous
-                              </Badge>
-                            )}
-                            {reply.isVerifiedMentor && (
-                              <Badge variant="secondary" className="text-xs bg-gradient-secondary text-white">
-                                <Shield className="h-3 w-3 mr-1" />
-                                Verified
-                              </Badge>
+                    {post.replies.map((reply) => {
+                      const replyAnalysis = analyzeContent(reply.content);
+                      return (
+                        <div 
+                          key={reply.id} 
+                          className={`${
+                            reply.parentId && threadedView ? 'ml-8' : 'ml-4'
+                          } p-3 bg-background/50 rounded-lg border border-border/40 hover:shadow-sm transition-shadow group`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium">{reply.author}</span>
+                              {reply.isAnonymous && (
+                                <Badge variant="outline" className="text-xs">
+                                  Anonymous
+                                </Badge>
+                              )}
+                              {reply.isVerifiedMentor && (
+                                <Badge variant="secondary" className="text-xs bg-gradient-secondary text-white">
+                                  <Shield className="h-3 w-3 mr-1" />
+                                  Verified
+                                </Badge>
+                              )}
+                              {reply.supportiveScore && reply.supportiveScore > 0.8 && (
+                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                  <Heart className="h-3 w-3 mr-1" />
+                                  Helpful
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-muted-foreground">
+                                {timeAgo(reply.timestamp)}
+                              </span>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => setReportDialogOpen(reply.id)}
+                                >
+                                  <Flag className="h-3 w-3 text-orange-500" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => {/* Reply to this specific reply */}}
+                                >
+                                  <Reply className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-sm leading-relaxed mb-2">{reply.content}</p>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                              <button className="flex items-center space-x-1 hover:text-primary transition-colors">
+                                <ThumbsUp className="h-3 w-3" />
+                                <span>{reply.likes}</span>
+                              </button>
+                              <button 
+                                className="flex items-center space-x-1 hover:text-primary transition-colors"
+                                onClick={() => setReplyingTo(reply.id)}
+                              >
+                                <Reply className="h-3 w-3" />
+                                <span>Reply</span>
+                              </button>
+                            </div>
+                            {/* AI Analysis Indicator */}
+                            {replyAnalysis.supportive > 0.7 && (
+                              <div className="flex items-center space-x-1 text-xs text-green-600">
+                                <Heart className="h-3 w-3" />
+                                <span>Supportive</span>
+                              </div>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            {timeAgo(reply.timestamp)}
-                          </span>
+                          
+                          {/* Moderation warning for reported replies */}
+                          {reply.reportCount && reply.reportCount > 0 && (
+                            <div className="mt-2 bg-orange-50 border border-orange-200 rounded p-2">
+                              <p className="text-xs text-orange-700">
+                                This reply is under review ({reply.reportCount} report(s))
+                              </p>
+                            </div>
+                          )}
                         </div>
-                        <p className="text-sm leading-relaxed mb-2">{reply.content}</p>
-                        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                          <button className="flex items-center space-x-1 hover:text-primary transition-colors">
-                            <ThumbsUp className="h-3 w-3" />
-                            <span>{reply.likes}</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
