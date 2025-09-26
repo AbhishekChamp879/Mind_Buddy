@@ -11,69 +11,69 @@ All colors MUST be HSL. Calming, accessible, stigma-free design.
 
 @layer base {
   :root {
-    /* Core MindBuddy Colors - Calming & Trustworthy */
-    --background: 210 10% 96%;
-    --foreground: 210 15% 23%;
+    /* Core MindBuddy Colors - Ocean Coral Gold Theme */
+    --background: 200 20% 98%;        /* Clean off-white with cool undertone */
+    --foreground: 200 15% 15%;        /* Deep charcoal blue */
 
-    /* Heading Colors - Dark Blue for Emphasis */
-    --heading: 220 91% 24%;           /* Deep dark blue for headings */
-    --heading-light: 220 85% 35%;     /* Lighter dark blue variant */
+    /* Heading Colors - Deep Ocean for Authority */
+    --heading: 200 85% 25%;           /* Deep ocean blue for headings */
+    --heading-light: 200 75% 35%;     /* Lighter ocean blue variant */
 
-    /* Primary colors - Core brand identity */
-    --primary: 212 92% 68%;           /* Enhanced calming blue #4A94FF */
-    --primary-light: 212 88% 78%;     /* Lighter shade for hover states */
-    --primary-glow: 212 80% 88%;      /* Very light for subtle effects */
-    --primary-variant: 198 88% 65%;   /* Blue-cyan variant */
+    /* Primary colors - Deep Ocean Blue */
+    --primary: 200 85% 45%;           /* Deep ocean blue #1B4D72 */
+    --primary-light: 200 75% 55%;     /* Lighter ocean blue */
+    --primary-glow: 200 60% 75%;      /* Light blue glow effect */
+    --primary-variant: 190 80% 50%;   /* Teal-ocean variant */
     --primary-foreground: 0 0% 100%;  /* White text on primary */
     
-    /* Secondary colors - Support and accent */
-    --secondary: 84 72% 52%;          /* Enhanced trust green #84E642 */
-    --secondary-light: 84 68% 62%;    /* Lighter green */
-    --secondary-variant: 156 68% 55%; /* Teal-green variant */
-    --secondary-foreground: 0 0% 0%;  /* Dark text on secondary */
+    /* Secondary colors - Living Coral */
+    --secondary: 16 85% 65%;          /* Living coral #FF6F61 */
+    --secondary-light: 16 75% 72%;    /* Lighter coral */
+    --secondary-variant: 25 75% 60%;  /* Peach-coral variant */
+    --secondary-foreground: 0 0% 100%; /* White text on secondary */
     
-    /* Accent color - Call-to-action and highlights */
-    --accent: 285 92% 70%;            /* Enhanced warm purple for CTAs */
-    --accent-light: 285 88% 80%;      /* Lighter purple */
-    --accent-variant: 315 85% 72%;    /* Pink-purple variant */
-    --accent-foreground: 0 0% 100%;   /* White text on accent */
+    /* Accent color - Golden Amber */
+    --accent: 45 90% 55%;             /* Golden amber #F0B429 */
+    --accent-light: 45 85% 65%;       /* Lighter golden amber */
+    --accent-variant: 35 85% 60%;     /* Warm gold variant */
+    --accent-foreground: 200 15% 15%; /* Dark text on accent */
 
     /* Trust & Safety Colors */
-    --trust: 220 60% 50%;
+    --trust: 200 70% 45%;             /* Ocean blue for trust */
     --trust-foreground: 0 0% 100%;
-    --safety: 160 100% 35%;
+    --safety: 140 60% 45%;            /* Forest green for safety */
     --safety-foreground: 0 0% 100%;
 
     /* Neutral System */
-    --muted: 210 15% 95%;
-    --muted-foreground: 210 10% 55%;
-    --card: 0 0% 100%;
-    --card-foreground: 210 15% 23%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 210 15% 23%;
+    --muted: 200 15% 94%;             /* Cool light gray */
+    --muted-foreground: 200 10% 45%;  /* Medium gray */
+    --card: 200 25% 99%;              /* Very light cool white */
+    --card-foreground: 200 15% 15%;   /* Updated to match new foreground */
+    --popover: 200 25% 99%;           /* Cool white popover */
+    --popover-foreground: 200 15% 15%; /* Updated to match new foreground */
 
     /* Interactive Elements */
-    --border: 210 20% 88%;
-    --input: 210 20% 94%;
-    --ring: 208 70% 54%;
+    --border: 200 20% 85%;            /* Cool light border */
+    --input: 200 15% 96%;             /* Cool input background */
+    --ring: 200 85% 45%;              /* Primary color for focus rings */
 
-    /* Severity Indicators */
-    --severity-low: 142 69% 58%;
-    --severity-medium: 35 80% 65%;
-    --severity-high: 0 65% 58%;
-    --severity-crisis: 0 85% 45%;
+    /* Severity Indicators - Ocean Theme */
+    --severity-low: 140 50% 55%;      /* Muted green for low severity */
+    --severity-medium: 35 75% 60%;    /* Warm amber for medium */
+    --severity-high: 16 75% 60%;      /* Coral for high severity */
+    --severity-crisis: 0 70% 50%;     /* Deep red for crisis */
 
-    /* Enhanced gradients for beautiful visual effects */
+    /* Enhanced gradients for beautiful visual effects - Ocean Coral Gold */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-variant)));
     --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-variant)));
     --gradient-hero: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
     --gradient-calm: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted)));
     --gradient-warm: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent-variant)));
     --gradient-aurora: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 50%, hsl(var(--secondary)) 100%);
-    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-    --gradient-mesh: radial-gradient(circle at 20% 80%, hsl(var(--primary) / 0.15) 0%, transparent 50%),
-                      radial-gradient(circle at 80% 20%, hsl(var(--accent) / 0.15) 0%, transparent 50%),
-                      radial-gradient(circle at 40% 40%, hsl(var(--secondary) / 0.1) 0%, transparent 50%);
+    --gradient-glass: linear-gradient(135deg, rgba(240, 248, 255, 0.1) 0%, rgba(240, 248, 255, 0.05) 100%);
+    --gradient-mesh: radial-gradient(circle at 20% 80%, hsl(var(--primary) / 0.12) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 20%, hsl(var(--accent) / 0.12) 0%, transparent 50%),
+                      radial-gradient(circle at 40% 40%, hsl(var(--secondary) / 0.10) 0%, transparent 50%);
 
     /* Enhanced shadow system */
     --shadow-soft: 0 2px 12px -2px hsl(var(--foreground) / 0.08);
@@ -117,39 +117,43 @@ All colors MUST be HSL. Calming, accessible, stigma-free design.
   }
 
   .dark {
-    --background: 210 15% 7%;
-    --foreground: 210 20% 92%;
+    --background: 200 25% 8%;         /* Deep ocean dark background */
+    --foreground: 200 15% 90%;        /* Light cool text */
 
-    /* Dark mode heading colors */
-    --heading: 220 75% 75%;           /* Lighter blue for dark mode */
-    --heading-light: 220 70% 65%;     /* Even lighter for dark mode */
+    /* Dark mode heading colors - Ocean theme */
+    --heading: 200 60% 70%;           /* Ocean blue for dark mode headers */
+    --heading-light: 200 50% 60%;     /* Lighter ocean blue */
 
-    --primary: 208 70% 60%;
-    --primary-foreground: 210 15% 7%;
-    --primary-light: 208 50% 25%;
-    --primary-glow: 208 60% 30%;
+    --primary: 200 70% 55%;           /* Brighter ocean for dark mode */
+    --primary-foreground: 200 25% 8%; /* Dark background as text */
+    --primary-light: 200 50% 35%;     /* Darker ocean variant */
+    --primary-glow: 200 55% 40%;      /* Ocean glow for dark */
 
-    --secondary: 142 60% 55%;
-    --secondary-foreground: 210 15% 7%;
-    --secondary-light: 142 40% 25%;
+    --secondary: 16 70% 60%;          /* Brighter coral for dark mode */
+    --secondary-foreground: 200 25% 8%; /* Dark background as text */
+    --secondary-light: 16 45% 35%;    /* Darker coral variant */
 
-    --accent: 35 70% 60%;
-    --accent-foreground: 210 15% 7%;
-    --accent-light: 35 50% 25%;
+    --accent: 45 80% 60%;             /* Brighter gold for dark mode */
+    --accent-foreground: 200 25% 8%;  /* Dark background as text */
+    --accent-light: 45 55% 35%;       /* Darker gold variant */
 
-    --muted: 210 15% 12%;
-    --muted-foreground: 210 10% 65%;
-    --card: 210 15% 9%;
-    --card-foreground: 210 20% 92%;
-    --popover: 210 15% 9%;
-    --popover-foreground: 210 20% 92%;
+    --muted: 200 20% 12%;             /* Cool dark muted */
+    --muted-foreground: 200 10% 65%;  /* Cool muted text */
+    --card: 200 20% 10%;              /* Cool dark card */
+    --card-foreground: 200 15% 90%;   /* Light text on card */
+    --popover: 200 20% 10%;           /* Cool dark popover */
+    --popover-foreground: 200 15% 90%; /* Light text on popover */
 
-    --border: 210 15% 18%;
-    --input: 210 15% 15%;
-    --ring: 208 70% 60%;
+    --border: 200 15% 20%;            /* Cool dark border */
+    --input: 200 15% 15%;             /* Cool dark input */
+    --ring: 200 70% 55%;              /* Primary color for focus rings */
 
-    --destructive: 0 65% 65%;
+    --destructive: 0 60% 60%;         /* Softer destructive for dark */
     --destructive-foreground: 0 0% 100%;
+
+    /* Dark mode trust and safety colors */
+    --trust: 200 55% 50%;             /* Ocean blue trust for dark */
+    --safety: 140 45% 45%;            /* Forest green safety for dark */
   }
 }
 
